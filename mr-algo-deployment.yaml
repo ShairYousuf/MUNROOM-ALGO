@@ -1,0 +1,39 @@
+# For creating Kubernetes Deployment in the Minikube cluster
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mr-algo-deployment
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: mr-algo
+  template:
+    metadata:
+      labels:
+        app: mr-algo
+    spec:
+      containers:
+        - name: mr-algo
+          image: gcr.io/mr-db-cd/mr-algo:$REV
+          resources:
+            limits:
+              memory: "384Mi"
+              cpu: "500m"
+          ports:
+            - containerPort: 8000
+
+---
+# For creating a Kubernetes Service in the Minikube cluster
+apiVersion: v1
+kind: Service
+metadata:
+  name: mr-algo-service
+spec:
+  type: LoadBalancer
+  selector:
+    app: mr-algo
+  ports:
+    - protocol: TCP
+      port: 8000
+      targetPort: 8000

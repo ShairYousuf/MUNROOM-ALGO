@@ -1,0 +1,38 @@
+# This workflow will do a clean installation of node dependencies, cache/restore them, build the source code and run tests across different versions of node
+
+name: Node.js Express CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: "20.x"
+
+      - name: Install dependencies
+        run: npm install
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run tests
+        run: npm test
+        env:
+          MONGODB_HOST: ${{ secrets.MONGODB_HOST }}
+          MONGODB_USERNAME: ${{ secrets.MONGODB_USERNAME }}
+          MONGODB_PASSWORD: ${{ secrets.MONGODB_PASSWORD }}
+          DB_SESSION_SECRET: ${{ secrets.DB_SESSION_SECRET }}
+
+      - name: Build application
+        run: npm run build

@@ -1,0 +1,14 @@
+# compose file for node-express-docker
+
+services:
+  node-express-docker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      NODE_ENV: development
+    container_name: node-experss-docker
+    expose:
+      - 8000
+    ports:
+      - 8000:8000

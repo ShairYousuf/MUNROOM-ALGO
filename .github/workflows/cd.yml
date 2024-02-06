@@ -1,0 +1,66 @@
+name: Build and Deploy to GKE
+
+on:
+  push:
+    branches:
+      - "main"
+
+env:
+  PROJECT_ID: ${{ secrets.GKE_PROJECT }}
+  TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  GKE_CLUSTER: mun-room
+  GKE_ZONE: us-central1
+  DEPLOYMENT_NAME: mr-algo-deployment
+  IMAGE: mr-algo
+  MONGODB_HOST: ${{ secrets.MONGODB_HOST }}
+  MONGODB_USERNAME: ${{ secrets.MONGODB_USERNAME }}
+  MONGODB_PASSWORD: ${{ secrets.MONGODB_PASSWORD }}
+  DB_SESSION_SECRET: ${{ secrets.DB_SESSION_SECRET }}
+
+jobs:
+  setup-build-publish-deploy:
+    name: Setup, Build, Publish, and Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Set up Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v0.3.0
+        with:
+          service_account_key: ${{ secrets.GKE_SA_KEY }}
+          project_id: ${{ secrets.GKE_PROJECT }}
+          export_default_credentials: true
+
+      - name: Configure Docker to use gcloud command-line tool
+        run: |
+          gcloud --quiet auth configure-docker
+      - name: Get credentials for GKE cluster
+        uses: google-github-actions/get-gke-credentials@v0.7.0
+        with:
+          cluster_name: ${{ env.GKE_CLUSTER }}
+          location: ${{ env.GKE_ZONE }}
+          credentials: ${{ secrets.GKE_SA_KEY }}
+          project_id: ${{ secrets.GKE_PROJECT }}
+
+      - name: Build the Docker image
+        run: |
+          docker build \
+            --tag "gcr.io/$PROJECT_ID/$IMAGE:$(cat package.json | jq -r '.version')" \
+            --build-arg TOKEN="$TOKEN" \
+            --build-arg MONGODB_HOST="$MONGODB_HOST" \
+            --build-arg MONGODB_USERNAME="$MONGODB_USERNAME" \
+            --build-arg MONGODB_PASSWORD="$MONGODB_PASSWORD" \
+            --build-arg DB_SESSION_SECRET="$DB_SESSION_SECRET" \
+            .
+
+      - name: Push the Docker image to Google Container Registry
+        run: |
+          docker push "gcr.io/$PROJECT_ID/$IMAGE:$(cat package.json | jq -r '.version')"
+
+      - name: Deploy
+        run: |-
+          export REV=$(cat package.json | jq -r '.version'); envsubst < mr-algo-deployment.yaml | kubectl apply -f -
+          kubectl rollout status deployment/$DEPLOYMENT_NAME
+          kubectl get services -o wide
